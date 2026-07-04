@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文字式マスター - 中学数学学習アプリ</title>
+    <style>
+        :root {
+            --primary: #4A90E2;
+            --success: #2ECC71;
+            --danger: #E74C3C;
+            --bg: #F5F7FA;
+            --card-bg: #FFFFFF;
+            --text: #333333;
+        }
+        body {
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            width: 100%;
+            max-width: 650px;
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            padding: 25px;
+        }
+        h1, h2 {
+            text-align: center;
+            color: var(--primary);
+            margin-top: 0;
+        }
+        .screen {
+            display: none;
+        }
+        .screen.active {
+            display: block;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        select, input[type="number"], input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            border: 2px solid #DDD;
+            border-radius: 8px;
+            box-sizing: border-box;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            font-size: 16px;
+            font-weight: bold;
+            color: white;
+            background-color: var(--primary);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 10px;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        button.secondary {
+            background-color: #7F8C8D;
+        }
+        button.danger {
+            background-color: var(--danger);
+        }
+        .question-box {
+            background: #EBF3FA;
+            padding: 20px;
+            border-radius: 8px;
+            font-size: 18px;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+        .option-btn {
+            background: white;
+            color: var(--text);
+            border: 2px solid var(--primary);
+            text-align: left;
+            padding: 12px;
+        }
+        .option-btn:hover {
+            background: #EBF3FA;
+        }
+        .feedback {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            font-weight: bold;
+            text-align: center;
+            display: none;
+        }
+        .feedback.correct {
+            background: #D4EDDA;
+            color: #155724;
+            border: 1px solid #C3E6CB;
+        }
+        .feedback.incorrect {
+            background: #F8D7DA;
+            color: #721C24;
+            border: 1px solid #F5C6CB;
+        }
+        .chart-container {
+            margin-top: 30px;
+            border-top: 2px solid #EEE;
+            padding-top: 20px;
+        }
+        canvas {
+            width: 100%;
+            height: 200px;
+            background: #FAFAFA;
+            border: 1px solid #EEE;
+            border-radius: 4px;
+        }
+        .stats-badge {
+            display: inline-block;
+            background: #FFF3CD;
+            color: #856404;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="home-screen" class="screen active">
+        <h1>文字式マスター</h1>
+        <p style="text-align: center; color: #666;">中学数学の文字式を完璧にしよう！</p>
+        
+        <div id="wrong-badge-container" style="text-align: center;"></div>
+
+        <div class="form-group">
+            <label for="mode-select">問題のジャンル</label>
+            <select id="mode-select">
+                <option value="coeff">1. 係数を答える問題 (ランダム生成)</option>
+                <option value="calc">2. 文字式の計算問題 (乗法・除法 / ランダム生成)</option>
+                <option value="word">3. 文章題 (数量の表す意味など全40種)</option>
+                <option value="review">🔥 間違えた問題の復習モード</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="question-count">出題数 (問題数を指定)</label>
+            <input type="number" id="question-count" value="5" min="1" max="50">
+        </div>
+
+        <button onclick="startQuiz()">スタート！</button>
+
+        <div class="chart-container">
+            <h2>正答率の推移（最新10回）</h2>
+            <canvas id="accuracyChart" width="550" height="200"></canvas>
+        </div>
+    </div>
+
+    <div id="quiz-screen" class="screen">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <span id="quiz-progress" style="font-weight: bold; color: #666;">第 1 問 / 5 問</span>
+            <button class="secondary" style="width: auto; padding: 6px 12px; margin: 0;" onclick="goHome()">中断して戻る</button>
+        </div>
+        <div class="question-box" id="question-text"></div>
+
+        <div id="input-area" style="display: none;">
+            <input type="text" id="answer-input" placeholder="答えを入力 (例: -5x または 3 など)">
+            <button onclick="checkInputAnswer()">答える</button>
+        </div>
+
+        <div id="options-area" class="options-grid" style="display: none;"></div>
+
+        <div id="feedback-area" class="feedback"></div>
+        <button id="next-btn" style="display: none; margin-top: 15px;" onclick="nextQuestion()">次の問題へ</button>
+    </div>
+
+    <div id="result-screen" class="screen">
+        <h1>学習完了！</h1>
+        <div style="text-align: center; margin: 30px 0;">
+            <p style="font-size: 20px;">あなたのスコア</p>
+            <p style="font-size: 48px; font-weight: bold; color: var(--primary); margin: 10px 0;" id="score-text">0 / 0</p>
+            <p style="font-size: 24px; font-weight: bold;" id="accuracy-text">正答率: 0%</p>
+        </div>
+        <button onclick="goHome()">ホーム画面に戻る</button>
+    </div>
+</div>
+
+<script>
+// --- 40種類の文章題データ ---
+const WORD_PROBLEMS = [
+    {q: "大人1人の入館料がx円、中学生1人の入館料がy円の博物館があります。式「x + 2y」は何を表していますか？", a: "大人1人と中学生2人の入館料の合計(円)", choices: ["大人1人と中学生2人の入館料の合計(円)", "大人2人と中学生1人の入館料の合計(円)", "大人1人と中学生1人の入館料の差(円)", "大人と中学生の入館料の平均(円)"]},
+    {q: "大人1人の入館料がx円、中学生1人の入館料がy円の博物館があります。式「x - y」は何を表していますか？", a: "大人1人と中学生1人の入館料の差(円)", choices: ["大人1人と中学生1人の入館料の差(円)", "大人1人と中学生1人の合計(円)", "大人x人と中学生y人の合計(円)", "中学生から見た大人の入館料の倍率"]},
+    {q: "縦がacm、横がbcmの長方形があります。式「ab」は何を表していますか？", a: "長方形の面積(cm²)", choices: ["長方形の面積(cm²)", "長方形の周の長さ(cm)", "長方形の対角線の長さ(cm)", "縦と横の長さの差(cm)"]},
+    {q: "縦がacm、横がbcmの長方形があります。式「2(a + b)」は何を表していますか？", a: "長方形の周の長さ(cm)", choices: ["長方形の周の長さ(cm)", "長方形の面積(cm²)", "長方形2つ分の面積(cm²)", "縦と横の平均の長さ(cm)"]},
+    {q: "1個a円のりんごを3個と、1個b円のみかんを5個買いました。式「3a + 5b」は何を表していますか？", a: "代金の合計(円)", choices: ["代金の合計(円)", "おつりの金額(円)", "買った果物の総数(個)", "りんごとみかんの価格の差(円)"]},
+    {q: "1個a円のケーキを4個買い、1000円札を出しました。式「1000 - 4a」は何を表していますか？", a: "受け取るおつり(円)", choices: ["受け取るおつり(円)", "ケーキ4個の代金(円)", "足りない金額(円)", "ケーキ1個の値段(円)"]},
+    {q: "時速x kmで走る自動車が2時間に進む道のりを表す式として正しいものはどれですか？", a: "2x (km)", choices: ["2x (km)", "x/2 (km)", "2/x (km)", "x + 2 (km)"]},
+    {q: "a kmの道のりを、時速b kmで歩いた時にかかる時間を表す式はどれですか？", a: "a/b (時間)", choices: ["a/b (時間)", "b/a (時間)", "ab (時間)", "a - b (時間)"]},
+    {q: "男子x人の平均点がa点、女子y人の平均点がb点であるとき、クラス全員の合計点を表す式はどれですか？", a: "ax + by (点)", choices: ["ax + by (点)", "(a+b)/(x+y) (点)", "ab + xy (点)", "xy/(a+b) (点)"]},
+    {q: "男子x人、女子y人のクラスで、全員でa本の鉛筆を均等に分けるとき、1人あたりの本数を表す式はどれですか？", a: "a / (x + y) (本)", choices: ["a / (x + y) (本)", "(x + y) / a (本)", "ax + ay (本)", "a - (x + y) (本)"]},
+    {q: "十の位の数がx、一の位の数がyである2けたの自然数を表す式はどれですか？", a: "10x + y", choices: ["10x + y", "xy", "x + y", "100x + y"]},
+    {q: "1冊x円のノートを5冊買ったとき、支払う金額がy円でした。このときの関係を表す式はどれですか？", a: "5x = y", choices: ["5x = y", "x/5 = y", "x + 5 = y", "5y = x"]},
+    {q: "1個x kgの品物3個と、1個y kgの品物2個の全体の重さはどれだけですか？", a: "3x + 2y (kg)", choices: ["3x + 2y (kg)", "6xy (kg)", "5(x + y) (kg)", "2x + 3y (kg)"]},
+    {q: "x円の商品の2割引きの価格を表す式はどれですか？", a: "0.8x (円)", choices: ["0.8x (円)", "0.2x (円)", "x - 2 (円)", "1.2x (円)"]},
+    {q: "a円の定価に対して30%引きで販売されている商品の売り値はどれですか？", a: "0.7a (円)", choices: ["0.7a (円)", "0.3a (円)", "30a (円)", "a - 30 (円)"]},
+    {q: "x mのテープから、y cmのテープを3本切り取ったときに残るテープの長さ(cm)を表す式はどれですか？", a: "100x - 3y (cm)", choices: ["100x - 3y (cm)", "x - 3y (cm)", "10x - 3y (cm)", "3y - 100x (cm)"]},
+    {q: "底辺がa cm、高さがh cmの三角形の面積を表す式はどれですか？", a: "1/2 ah (cm²)", choices: ["1/2 ah (cm²)", "ah (cm²)", "2ah (cm²)", "a + h (cm²)"]},
+    {q: "半径がr cmの円の円周の長さを表す式はどれですか？（円周率はπとする）", a: "2πr (cm)", choices: ["2πr (cm)", "πr² (cm)", "πr (cm)", "2πr² (cm)"]},
+    {q: "半径がr cmの円の面積を表す式はどれですか？（円周率はπとする）", a: "πr² (cm²)", choices: ["πr² (cm²)", "2πr (cm²)", "2πr² (cm²)", "πr (cm²)"]},
+    {q: "百の位がa、十の位がb、一の位がcである3けたの自然数を表す式はどれですか？", a: "100a + 10b + c", choices: ["100a + 10b + c", "abc", "a + b + c", "10a + 10b + c"]},
+    {q: "連続する3つの整数のうち、真ん中の整数をnとしたとき、最も小さい整数を表す式はどれですか？", a: "n - 1", choices: ["n - 1", "n + 1", "2n", "n - 2"]},
+    {q: "偶数を表す式として適切なものはどれですか？（nは整数とする）", a: "2n", choices: ["2n", "2n + 1", "n / 2", "3n"]},
+    {q: "奇数を表す式として適切なものはどれですか？（nは整数とする）", a: "2n + 1", choices: ["2n + 1", "2n", "3n", "n + 2"]},
+    {q: "5で割ると2余る自然数を表す式はどれですか？（nは0以上の整数とする）", a: "5n + 2", choices: ["5n + 2", "2n + 5", "5(n + 2)", "5n - 2"]},
+    {q: "縦がa cm、横がb cm、高さがc cmの直方体の体積を表す式はどれですか？", a: "abc (cm³)", choices: ["abc (cm³)", "2(ab + bc + ca) (cm³)", "a + b + c (cm³)", "4(a + b + c) (cm³)"]},
+    {q: "1辺の長さがa cmの立方体の表面積を表す式はどれですか？", a: "6a² (cm²)", choices: ["6a² (cm²)", "a³ (cm²)", "4a² (cm²)", "12a (cm²)"]},
+    {q: "x時間とy分を合わせた時間を「分」の単位で表す式はどれですか？", a: "60x + y (分)", choices: ["60x + y (分)", "x + 60y (分)", "x + y (分)", "x/60 + y (分)"]},
+    {q: "x分を「時間」の単位で表す式はどれですか？", a: "x/60 (時間)", choices: ["x/60 (時間)", "60x (時間)", "x/3600 (時間)", "x - 60 (時間)"]},
+    {q: "a mは何cmですか？式で表しなさい。", a: "100a (cm)", choices: ["100a (cm)", "10a (cm)", "a/100 (cm)", "1000a (cm)"]},
+    {q: "x gはどれだけの重さ(kg)ですか？式で表しなさい。", a: "x/1000 (kg)", choices: ["x/1000 (kg)", "1000x (kg)", "x/100 (kg)", "100x (kg)"]},
+    {q: "ある学校の今年の生徒数は、去年の生徒数x人から5%増加しました。今年の生徒数を表す式はどれですか？", a: "1.05x (人)", choices: ["1.05x (人)", "0.05x (人)", "0.95x (人)", "1.5x (人)"]},
+    {q: "a人のクラスでアンケートを取ったところ、賛成した人はb人でした。賛成した人の割合を百分率(%)で表す式はどれですか？", a: "100b/a (%)", choices: ["100b/a (%)", "b/a (%)", "100a/b (%)", "a/100b (%)"]},
+    {q: "分速x mで歩く人が、y km進むのにかかる時間(分)を表す式はどれですか？", a: "1000y / x (分)", choices: ["1000y / x (分)", "y / x (分)", "xy / 1000 (分)", "1000x / y (分)"]},
+    {q: "1本a円のジュースを4本と、1袋b円のお菓子を3袋買って、1000円札を出したときのおつりを表す式はどれですか？", a: "1000 - (4a + 3b) (円)", choices: ["1000 - (4a + 3b) (円)", "1000 - 4a + 3b (円)", "(4a + 3b) - 1000 (円)", "1000 - 12ab (円)"]},
+    {q: "上底がa cm、下底がb cm、高さがh cmの台形の面積を表す式はどれですか？", a: "1/2 (a + b)h (cm²)", choices: ["1/2 (a + b)h (cm²)", "(a + b)h (cm²)", "1/2 abh (cm²)", "a + b + h (cm²)"]},
+    {q: "周の長さがl cmの長方形で、縦の長さをx cmとしたとき、横の長さを表す式はどれですか？", a: "l/2 - x (cm)", choices: ["l/2 - x (cm)", "l - 2x (cm)", "(l - x)/2 (cm)", "l/2 + x (cm)"]},
+    {q: "現在x歳の父親と、y歳の子供がいます。5年後の2人の年齢の合計を表す式はどれですか？", a: "x + y + 10 (歳)", choices: ["x + y + 10 (歳)", "x + y + 5 (歳)", "5(x + y) (歳)", "xy + 5 (歳)"]},
+    {q: "全体の仕事量が1である仕事を、Aさんは完成までにx日かかります。Aさんが1日で行う仕事量を表す式はどれですか？", a: "1/x", choices: ["1/x", "x", "0.1x", "x/10"]},
+    {q: "ある品物に入っていた個数がa個で、そのうち不良品がb個ありました。良品の個数を表す式はどれですか？", a: "a - b (個)", choices: ["a - b (個)", "b - a (個)", "a/b (個)", "ab (個)"]},
+    {q: "水槽に水がx L入っています。ここから1分間にy dLの割合で水を汲み出すとき、5分後に残っている水の量(L)を表す式はどれですか？(1L = 10dL)", a: "x - 0.5y (L)", choices: ["x - 0.5y (L)", "x - 5y (L)", "x - 50y (L)", "10x - 5y (L)"]}
+];
+
+// --- グローバル変数 ---
+let currentQuestions = [];
+let currentIndex = 0;
+let score = 0;
+let answered = false;
+
+// --- 初期化 ---
+window.onload = () => {
+    updateWrongBadge();
+    drawChart();
+};
+
+function updateWrongBadge() {
+    const wrongList = getWrongList();
+    const container = document.getElementById('wrong-badge-container');
+    if (wrongList.length > 0) {
+        container.innerHTML = `<span class="stats-badge">📌 復習モードに ${wrongList.length} 問の苦手問題があります</span>`;
+    } else {
+        container.innerHTML = '';
+    }
+}
+
+// --- クイズ生成ロジック ---
+function startQuiz() {
+    const mode = document.getElementById('mode-select').value;
+    const count = parseInt(document.getElementById('question-count').value) || 5;
+
+    currentQuestions = [];
+    score = 0;
+    currentIndex = 0;
+
+    if (mode === 'review') {
+        const wrongList = getWrongList();
+        if (wrongList.length === 0) {
+            alert('保存されている間違えた問題はありません！バッチリです！');
+            return;
+        }
+        // 復習モードは保存されている問題から最大count件出題
+        currentQuestions = wrongList.slice(0, count);
+    } else {
+        for (let i = 0; i < count; i++) {
+            if (mode === 'coeff') {
+                currentQuestions.push(generateCoeffQuestion());
+            } else if (mode === 'calc') {
+                currentQuestions.push(generateCalcQuestion());
+            } else if (mode === 'word') {
+                const rnd = Math.floor(Math.random() * WORD_PROBLEMS.length);
+                const prob = WORD_PROBLEMS[rnd];
+                // 選択肢をシャッフル
+                const shuffled = [...prob.choices].sort(() => Math.random() - 0.5);
+                currentQuestions.push({
+                    type: 'choice',
+                    question: prob.q,
+                    answer: prob.a,
+                    options: shuffled
+                });
+            }
+        }
+    }
+
+    showScreen('quiz-screen');
+    renderQuestion();
+}
+
+// 係数問題の生成
+function generateCoeffQuestion() {
+    const vars = ['x', 'y', 'a', 'b'];
+    const v = vars[Math.floor(Math.random() * vars.length)];
+    let coeff;
+    do {
+        coeff = Math.floor(Math.random() * 25) - 12;
+    } while (coeff === 0);
+
+    let expr = coeff === 1 ? v : (coeff === -1 ? `-${v}` : `${coeff}${v}`);
+    return {
+        type: 'input',
+        question: `文字式 「 ${expr} 」 の ${v} の係数を答えなさい。(半角数字で入力)`,
+        answer: coeff.toString()
+    };
+}
+
+// 計算問題の生成
+function generateCalcQuestion() {
+    const isDivision = Math.random() < 0.5;
+    const vars = ['x', 'y', 'a'];
+    const v = vars[Math.floor(Math.random() * vars.length)];
+
+    if (isDivision) {
+        // 例: 56x ÷ 4 = 14x
+        let ansCoeff = Math.floor(Math.random() * 15) + 2;
+        let div = (Math.floor(Math.random() * 9) + 2) * (Math.random() < 0.3 ? -1 : 1);
+        let origCoeff = ansCoeff * div;
+        
+        let ansStr = ansCoeff === 1 ? v : (ansCoeff === -1 ? `-${v}` : `${ansCoeff}${v}`);
+        return {
+            type: 'input',
+            question: `次の計算をしなさい。<br><br><b>${origCoeff}${v} ÷ (${div})</b>`,
+            answer: ansStr
+        };
+    } else {
+        // 乗法 例: 4x × (-3) = -12x
+        let c1 = Math.floor(Math.random() * 12) + 2;
+        let c2 = (Math.floor(Math.random() * 9) + 2) * (Math.random() < 0.5 ? -1 : 1);
+        let ansCoeff = c1 * c2;
+        let ansStr = `${ansCoeff}${v}`;
+        return {
+            type: 'input',
+            question: `次の計算をしなさい。<br><br><b>${c1}${v} × (${c2})</b>`,
+            answer: ansStr
+        };
+    }
+}
+
+// --- クイズ描画 ---
+function renderQuestion() {
+    answered = false;
+    const q = currentQuestions[currentIndex];
+    document.getElementById('quiz-progress').innerText = `第 ${currentIndex + 1} 問 / ${currentQuestions.length} 問`;
+    document.getElementById('question-text').innerHTML = q.question;
+    
+    const inputArea = document.getElementById('input-area');
+    const optionsArea = document.getElementById('options-area');
+    const feedbackArea = document.getElementById('feedback-area');
+    const nextBtn = document.getElementById('next-btn');
+
+    feedbackArea.style.display = 'none';
+    nextBtn.style.display = 'none';
+
+    if (q.type === 'input') {
+        inputArea.style.display = 'block';
+        optionsArea.style.display = 'none';
+        const input = document.getElementById('answer-input');
+        input.value = '';
+        input.focus();
+        // Enterキーで回答できるようにする
+        input.onkeydown = (e) => { if (e.key === 'Enter' && !answered) checkInputAnswer(); };
+    } else {
+        inputArea.style.display = 'none';
+        optionsArea.style.display = 'grid';
+        optionsArea.innerHTML = '';
+        q.options.forEach(opt => {
+            const btn = document.createElement('button');
+            btn.className = 'option-btn';
+            btn.innerText = opt;
+            btn.onclick = () => checkChoiceAnswer(opt);
+            optionsArea.appendChild(btn);
+        });
+    }
+}
+
+// --- 回答チェック ---
+function checkInputAnswer() {
+    if (answered) return;
+    const userAns = document.getElementById('answer-input').value.replace(/\s+/g, '');
+    const correctAns = currentQuestions[currentIndex].answer.toString().replace(/\s+/g, '');
+    processResult(userAns === correctAns, currentQuestions[currentIndex].answer);
+}
+
+function checkChoiceAnswer(choice) {
+    if (answered) return;
+    const correctAns = currentQuestions[currentIndex].answer;
+    processResult(choice === correctAns, correctAns);
+}
+
+function processResult(isCorrect, correctAnswerText) {
+    answered = true;
+    const feedbackArea = document.getElementById('feedback-area');
+    const nextBtn = document.getElementById('next-btn');
+    const q = currentQuestions[currentIndex];
+
+    feedbackArea.style.display = 'block';
+    nextBtn.style.display = 'block';
+
+    if (isCorrect) {
+        score++;
+        feedbackArea.className = 'feedback correct';
+        feedbackArea.innerHTML = '🎉 大正解！素晴らしい！';
+        removeWrongProblem(q);
+    } else {
+        feedbackArea.className = 'feedback incorrect';
+        feedbackArea.innerHTML = `残らない！残念...<br>正解は： <b>${correctAnswerText}</b>`;
+        saveWrongProblem(q);
+    }
+}
+
+function nextQuestion() {
+    currentIndex++;
+    if (currentIndex < currentQuestions.length) {
+        renderQuestion();
+    } else {
+        showResult();
+    }
+}
+
+// --- 結果画面 ---
+function showResult() {
+    showScreen('result-screen');
+    const total = currentQuestions.length;
+    const acc = Math.round((score / total) * 100);
+
+    document.getElementById('score-text').innerText = `${score} / ${total}`;
+    document.getElementById('accuracy-text').innerText = `正答率: ${acc}%`;
+
+    // 履歴を保存してグラフを更新
+    saveHistory(acc);
+    drawChart();
+    updateWrongBadge();
+}
+
+// --- 画面切り替え ---
+function showScreen(screenId) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(screenId).classList.add('active');
+}
+
+function goHome() {
+    showScreen('home-screen');
+    updateWrongBadge();
+}
+
+// --- ローカルストレージ管理 (間違えた問題) ---
+function getWrongList() {
+    const data = localStorage.getItem('math_wrong_list');
+    return data ? JSON.parse(data) : [];
+}
+
+function saveWrongProblem(qObj) {
+    let list = getWrongList();
+    // 問題文で重複チェック
+    if (!list.some(item => item.question === qObj.question)) {
+        list.push(qObj);
+        localStorage.setItem('math_wrong_list', JSON.stringify(list));
+    }
+}
+
+function removeWrongProblem(qObj) {
+    let list = getWrongList();
+    list = list.filter(item => item.question !== qObj.question);
+    localStorage.setItem('math_wrong_list', JSON.stringify(list));
+}
+
+// --- ローカルストレージ管理 (正答率履歴とグラフ) ---
+function saveHistory(accuracy) {
+    let history = getHistory();
+    history.push(accuracy);
+    if (history.length > 10) history = history.slice(-10); // 最新10件を保持
+    localStorage.setItem('math_accuracy_history', JSON.stringify(history));
+}
+
+function getHistory() {
+    const data = localStorage.getItem('math_accuracy_history');
+    return data ? JSON.parse(data) : [];
+}
+
+function drawChart() {
+    const canvas = document.getElementById('accuracyChart');
+    const ctx = canvas.getContext('2d');
+    const history = getHistory();
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 背景の補助線
+    ctx.strokeStyle = '#E0E0E0';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+        let y = 20 + i * 35;
+        ctx.beginPath();
+        ctx.moveTo(40, y);
+        ctx.lineTo(520, y);
+        ctx.stroke();
+        
+        ctx.fillStyle = '#888';
+        ctx.font = '10px sans-serif';
+        ctx.fillText(`${100 - i * 25}%`, 8, y + 4);
+    }
+
+    if (history.length === 0) {
+        ctx.fillStyle = '#888';
+        ctx.font = '14px sans-serif';
+        ctx.fillText('まだ学習履歴がありません。問題を解くとグラフが表示されます。', 80, 95);
+        return;
+    }
+
+    // 折れ線グラフを描画
+    const startX = 60;
+    const stepX = (520 - startX) / Math.max(history.length - 1, 1);
+
+    ctx.strokeStyle = '#4A90E2';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+
+    history.forEach((acc, i) => {
+        const x = startX + i * stepX;
+        const y = 160 - (acc / 100) * 140; // 20〜160の範囲で高さ表現
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // プロット点を描画
+    history.forEach((acc, i) => {
+        const x = startX + i * stepX;
+        const y = 160 - (acc / 100) * 140;
+        
+        ctx.fillStyle = '#4A90E2';
+        ctx.beginPath();
+        ctx.arc(x, y, 5, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#333';
+        ctx.font = '12px bold sans-serif';
+        ctx.fillText(`${acc}%`, x - 12, y - 10);
+    });
+}
+</script>
+</body>
+</html>
